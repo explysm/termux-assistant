@@ -32,6 +32,7 @@ COMMAND DICTIONARY:
 - Torch: termux-torch [on|off]
 - Toast: termux-toast "text"
 - SMS: termux-sms-send -n <num> <msg>
+- Camera: termux-camera-photo <filename>
 
 EXAMPLES:
 User: raise volume to full
@@ -42,5 +43,8 @@ Output: termux-brightness 25 && termux-vibrate -d 500
 
 User: send sms to (555) 123-4567 saying hello
 Output: termux-sms-send -n 5551234567 "hello"
+
+User: take a photo
+Output: termux-camera-photo photo.jpg
 """
 
