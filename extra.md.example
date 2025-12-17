@@ -1,0 +1,8 @@
+# Examples
+
+### EXTRA API KNOWLEDGE:
+- Screen Record: termux-screenrecord <file.mp4>
+- Media Player: termux-media-player play <file>
+- Brightness Max: termux-brightness 255
+- If user says 'party mode', vibrate 5 times and turn on flashlig>
+
