@@ -16,6 +16,36 @@ def timer_display(stop_event, start_time):
     sys.stdout.write(f"\r\033[90mResponse generated in {elapsed:.2f}s\033[0m\n")
     sys.stdout.flush()
 
+# Helper for colored output
+def _print_message(message, msg_type="info", end='\n', flush=False):
+    colors = {
+        "info": "\033[0m",         # Reset / Default
+        "system": "\033[96m",      # Cyan
+        "prompt": "\033[92m",      # Green
+        "executing": "\033[94m",   # Blue
+        "ai_response": "\033[93m", # Yellow
+        "error": "\033[91m",       # Red
+        "warning": "\033[93m",     # Yellow (same as AI response for now)
+        "timer": "\033[90m",       # Dark Grey
+        "bold": "\033[1m",         # Bold
+        "reset": "\033[0m"         # Reset
+    }
+    
+    prefix = ""
+    suffix = colors["reset"]
+    
+    if msg_type in colors:
+        prefix = colors[msg_type]
+    
+    # Special handling for timer, which might use \r
+    if msg_type == "timer":
+        sys.stdout.write(f"{prefix}{message}{suffix}{end}")
+    else:
+        sys.stdout.write(f"{prefix}{message}{suffix}{end}")
+    
+    if flush:
+        sys.stdout.flush()
+
 # --- CONFIGURATION ---
 import sys
 import os
@@ -38,7 +68,7 @@ def is_ollama_running():
         return False
 
 def start_ollama_background():
-    print("\033[96mAttempting to start Ollama in the background...\033[0m")
+    _print_message("Attempting to start Ollama in the background...", msg_type="system")
     try:
         # Use subprocess.Popen with preexec_fn for detaching on Unix-like systems
         # On Termux, 'nohup' might be more robust with '&'
@@ -47,10 +77,10 @@ def start_ollama_background():
                          stderr=subprocess.DEVNULL, 
                          preexec_fn=os.setpgrp # Detach from current process group
                         )
-        print("\033[96mOllama start command issued. Waiting for it to become ready...\033[0m")
+        _print_message("Ollama start command issued. Waiting for it to become ready...", msg_type="system")
         return True
     except Exception as e:
-        print(f"\033[91mERROR: Could not start Ollama: {e}\033[0m")
+        _print_message(f"ERROR: Could not start Ollama: {e}", msg_type="error")
         return False
 
 def load_extra_config():
@@ -66,7 +96,7 @@ def load_extra_config():
                 if os.path.exists(extra_path):
                     with open(extra_path, "r") as ef:
                         extra_context = ef.read().strip()
-                        print("\033[90m[Config: Extra context loaded from extra.md]\033[0m")
+                        _print_message("[Config: Extra context loaded from extra.md]", msg_type="system")
     return extra_context
 
 def sanitize_command(cmd):
@@ -166,24 +196,23 @@ def main():
         for _ in range(30):  # Wait up to 30 seconds for Ollama to start
             if is_ollama_running():
                 ollama_ready = True
-                print("\033[96mOllama is now running!\033[0m")
+                _print_message("Ollama is now running!", msg_type="system")
                 break
-            print("\033[90m.\033[0m", end='', flush=True)
+            _print_message(".", msg_type="timer", end='', flush=True)
             time.sleep(1)
         if not ollama_ready:
-            print("\n\033[91mERROR: Ollama did not start in time. Please start it manually.\033[0m")
+            _print_message("ERROR: Ollama did not start in time. Please start it manually.", msg_type="error")
             sys.exit(1)
-
-    print("\033[96mAndroid AI Controller Active. (Ctrl+D to exit)\033[0m")
     
+    _print_message("Android AI Controller Active. (Ctrl+D to exit)", msg_type="system")
     
     while True:
         try:
-            user_query = input("\033[92m> \033[0m")
+            _print_message("> ", msg_type="prompt", end='', flush=True)
+            user_query = input("")
             if not user_query.strip():
                 continue
             
-            print("\033[90mGenerating response...\033[0m", end='', flush=True)
             start_time = time.time()
             stop_timer_event = threading.Event()
             timer_thread = threading.Thread(target=timer_display, args=(stop_timer_event, start_time))
@@ -201,7 +230,7 @@ def main():
                             final_command = chunk["final_command"]
                             break # Exit the loop, final command received
                         elif "error" in chunk:
-                            print(f"\n\033[91m{chunk['error']}\033[0m")
+                            _print_message(f"{chunk['error']}", msg_type="error")
                             error_occurred = True
                             break
                     else:
@@ -212,25 +241,23 @@ def main():
                 stop_timer_event.set()
                 timer_thread.join()
             
-            sys.stdout.write('\n') # Move to a new line after the streamed output
-            sys.stdout.flush()
+            _print_message("", end='\n', flush=True) # Ensure newline after streamed output
 
             if error_occurred:
                 continue
-
             if final_command:
                 command = final_command
             else:
                 command = sanitize_command(full_command_content) # Fallback if final_command not explicitly yielded
 
             if "termux-" in command and "error" not in command.lower():
-                print(f"\033[94mExecuting:\033[0m {command}")
+                _print_message(f"Executing: {command}", msg_type="executing")
                 subprocess.run(command, shell=True)
             else:
-                print(f"\033[93mAI Response:\033[0m {command}")
+                _print_message(f"AI Response: {command}", msg_type="ai_response")
                 
         except (EOFError, KeyboardInterrupt):
-            print("\n\033[91mShutting down assistant...\033[0m")
+            _print_message("Shutting down assistant...", msg_type="system")
             break
 
 if __name__ == "__main__":
