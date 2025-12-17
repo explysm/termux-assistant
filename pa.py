@@ -1,5 +1,22 @@
+import threading
+import json
+import time
 import requests
 import subprocess
+
+# Function to display a real-time timer
+def timer_display(stop_event, start_time):
+    while not stop_event.is_set():
+        elapsed = time.time() - start_time
+        sys.stdout.write(f"\r\033[90mGenerating response... {elapsed:.1f}s\033[0m")
+        sys.stdout.flush()
+        time.sleep(0.1)
+    # Print the final time after the loop exits, to ensure it's on a new line
+    elapsed = time.time() - start_time
+    sys.stdout.write(f"\r\033[90mResponse generated in {elapsed:.2f}s\033[0m\n")
+    sys.stdout.flush()
+
+# --- CONFIGURATION ---
 import sys
 import os
 import re
@@ -80,7 +97,7 @@ COMMAND:"""
     payload = {
         "model": MODEL_NAME,
         "prompt": full_prompt,
-        "stream": False,
+        "stream": True,
         "keep_alive": "1h", # Model stays in RAM
         "options": {
             "temperature": 0.0,
@@ -91,12 +108,27 @@ COMMAND:"""
 
     try:
         # 30s timeout handles the slow disk-to-RAM load on mobile
-        response = session.post(OLLAMA_URL, json=payload, timeout=30)
+        response = session.post(OLLAMA_URL, json=payload, timeout=30, stream=True)
         response.raise_for_status()
-        raw_response = response.json().get("response", "").strip()
-        return sanitize_command(raw_response)
+
+        full_response_content = ""
+        for chunk in response.iter_lines():
+            if chunk:
+                decoded_chunk = chunk.decode('utf-8')
+                try:
+                    json_data = json.loads(decoded_chunk)
+                    content = json_data.get("response")
+                    if content:
+                        full_response_content += content
+                        yield content
+                except json.JSONDecodeError:
+                    # Handle cases where a chunk might not be a complete JSON object
+                    pass
+        # After streaming, sanitize the full response and yield it as the final command
+        final_command = sanitize_command(full_response_content)
+        yield {"final_command": final_command} # Indicate the final command
     except Exception as e:
-        return f"ERROR: {e}"
+        yield {"error": f"ERROR: {e}"}
 
 def main():
     extra_context = load_extra_config()
@@ -108,13 +140,50 @@ def main():
             if not user_query.strip():
                 continue
             
-            command = get_ai_command(user_query, extra_context)
+            print("\033[90mGenerating response...\033[0m", end='', flush=True)
+            start_time = time.time()
+            stop_timer_event = threading.Event()
+            timer_thread = threading.Thread(target=timer_display, args=(stop_timer_event, start_time))
+            timer_thread.daemon = True
+            timer_thread.start()
+
+            full_command_content = ""
+            final_command = None
+            error_occurred = False
+
+            try:
+                for chunk in get_ai_command(user_query, extra_context):
+                    if isinstance(chunk, dict):
+                        if "final_command" in chunk:
+                            final_command = chunk["final_command"]
+                            break # Exit the loop, final command received
+                        elif "error" in chunk:
+                            print(f"\n\033[91m{chunk['error']}\033[0m")
+                            error_occurred = True
+                            break
+                    else:
+                        full_command_content += chunk
+                        sys.stdout.write(chunk) # Print partial response
+                        sys.stdout.flush()
+            finally:
+                stop_timer_event.set()
+                timer_thread.join()
             
+            sys.stdout.write('\n') # Move to a new line after the streamed output
+            sys.stdout.flush()
+
+            if error_occurred:
+                continue
+
+            if final_command:
+                command = final_command
+            else:
+                command = sanitize_command(full_command_content) # Fallback if final_command not explicitly yielded
+
             if "termux-" in command and "error" not in command.lower():
                 print(f"\033[94mExecuting:\033[0m {command}")
                 subprocess.run(command, shell=True)
             else:
-                # If the AI responded with text or an error instead of a command
                 print(f"\033[93mAI Response:\033[0m {command}")
                 
         except (EOFError, KeyboardInterrupt):
