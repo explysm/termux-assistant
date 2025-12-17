@@ -39,5 +39,8 @@ Output: termux-volume music 15
 
 User: set brightness to 10 percent and vibrate
 Output: termux-brightness 25 && termux-vibrate -d 500
+
+User: send sms to (555) 123-4567 saying hello
+Output: termux-sms-send -n 5551234567 "hello"
 """
 

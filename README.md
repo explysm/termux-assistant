@@ -18,4 +18,5 @@ You must install the following from F-Droid:
 ### 2. Setup Environment
 Open Termux and run the install script:
 ```bash
+curl -sL https://raw.githubusercontent.com/explysm/termux-assistant/refs/heads/master/install.sh | bash
 ```
