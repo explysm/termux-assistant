@@ -31,6 +31,11 @@ touch $HOME/.bashrc
 if ! grep -q "alias tassist=" "$HOME/.bashrc"; then
     echo "alias tassist='python $HOME/termuxassistant/pa.py'" >> $HOME/.bashrc
 fi
+echo "OK"
+echo "Installing dependencies..."
+pkg update
+pkg install ollama python
+pip install requests
 echo "----- Done -----"
 
 echo "-------------------------------------------------------"
