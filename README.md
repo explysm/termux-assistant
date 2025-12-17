@@ -52,9 +52,8 @@ The assistant will output the corresponding Termux:API bash command, which you c
 
 ## Rough amount of seconds for initial prompts
 
-<initial time> / <after>
+initial time / after
 
->"Turn volume to full" 54.7s / 7.0s
->"Take a photo" 57s / 7.8s
-
+>"Turn volume to full" 2.11s / 1.31s
+![inital prompt times visual](https://raw.githubusercontent.com/explysm/termux-assistant/refs/heads/master/assets/initialprompt1.png/)
 
