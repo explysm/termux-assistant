@@ -55,5 +55,5 @@ The assistant will output the corresponding Termux:API bash command, which you c
 initial time / after
 
 >"Turn volume to full" 2.11s / 1.31s
-![inital prompt times visual](https://raw.githubusercontent.com/explysm/termux-assistant/refs/heads/master/assets/initialprompt1.png/)
+![inital prompt times visual](https://raw.githubusercontent.com/explysm/termux-assistant/refs/heads/master/assets/initialprompt1.png)
 
