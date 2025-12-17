@@ -27,6 +27,32 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 session = requests.Session()
 
+def is_ollama_running():
+    try:
+        # Ollama's API usually responds to a GET request on its base URL when running
+        response = session.get(OLLAMA_URL.replace("/api/generate", ""), timeout=1)
+        return response.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
+    except requests.exceptions.Timeout:
+        return False
+
+def start_ollama_background():
+    print("\033[96mAttempting to start Ollama in the background...\033[0m")
+    try:
+        # Use subprocess.Popen with preexec_fn for detaching on Unix-like systems
+        # On Termux, 'nohup' might be more robust with '&'
+        subprocess.Popen("nohup ollama serve &", shell=True, 
+                         stdout=subprocess.DEVNULL, 
+                         stderr=subprocess.DEVNULL, 
+                         preexec_fn=os.setpgrp # Detach from current process group
+                        )
+        print("\033[96mOllama start command issued. Waiting for it to become ready...\033[0m")
+        return True
+    except Exception as e:
+        print(f"\033[91mERROR: Could not start Ollama: {e}\033[0m")
+        return False
+
 def load_extra_config():
     """Reads settings.conf and extra.md if 'extra=yes' is set."""
     config_path = os.path.join(BASE_DIR, "settings.conf")
@@ -132,7 +158,24 @@ COMMAND:"""
 
 def main():
     extra_context = load_extra_config()
+
+    # Check and start Ollama if not running
+    if not is_ollama_running():
+        start_ollama_background()
+        ollama_ready = False
+        for _ in range(30):  # Wait up to 30 seconds for Ollama to start
+            if is_ollama_running():
+                ollama_ready = True
+                print("\033[96mOllama is now running!\033[0m")
+                break
+            print("\033[90m.\033[0m", end='', flush=True)
+            time.sleep(1)
+        if not ollama_ready:
+            print("\n\033[91mERROR: Ollama did not start in time. Please start it manually.\033[0m")
+            sys.exit(1)
+
     print("\033[96mAndroid AI Controller Active. (Ctrl+D to exit)\033[0m")
+    
     
     while True:
         try:
